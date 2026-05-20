@@ -3280,6 +3280,410 @@
 ////
 
 
+// import React, { useState, useEffect, useCallback } from "react";
+// import Sidebar from "./Sidebar.jsx";
+// import BackArrow from "../assets/BackArrow.png";
+// import { Search } from "lucide-react";
+// import { useNavigate, useLocation } from "react-router-dom";
+
+// const BASE_URL = "https://apis.famocare.com/api/referralsystem/admin";
+// const DETAILS_URL = "https://apis.famocare.com/api/referralsystem/referrals/details/get";
+
+// const resolveImageUrl = (imageUrl) => {
+//   if (!imageUrl) return `https://ui-avatars.com/api/?name=User&background=055860&color=fff`;
+//   if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) return imageUrl;
+//   return `${BASE_URL.replace("/api/referralsystem/admin", "")}/uploads/${imageUrl}`;
+// };
+
+// const ITEMS_PER_PAGE = 10;
+
+// export default function ReferralMarketingUsers() {
+//   const navigate = useNavigate();
+//   const location = useLocation();
+
+//   const [searchTerm, setSearchTerm]             = useState(""); // left panel (future)
+//   const [tableSearch, setTableSearch]           = useState(""); // client-side filter
+//   const [currentPage, setCurrentPage]           = useState(1);
+//   const [selectedUserName, setSelectedUserName] = useState("");
+//   const [selectedUserId, setSelectedUserId]     = useState(null);
+//   const [storedAvatar, setStoredAvatar]         = useState("");
+
+//   // ── API state ─────────────────────────────────────────────────────────────
+//   const [referralUser, setReferralUser] = useState(null);
+//   const [allUsers, setAllUsers]         = useState([]); // ALL users, fetched once
+//   const [loading, setLoading]           = useState(false);
+
+//   // ── Stats state ───────────────────────────────────────────────────────────
+//   const [freeStats, setFreeStats] = useState({ total: 0, thisMonth: 0, thisWeek: 0, revenue: 0 });
+
+//   // ── Fetch ALL users once (large limit) ───────────────────────────────────
+//   const fetchAllUsers = useCallback(async (userId) => {
+//     if (!userId) return;
+//     setLoading(true);
+//     try {
+//       const res  = await fetch(
+//         `${BASE_URL}/referral-users/${userId}/free-users?page=1&limit=10000&id=${userId}`
+//       );
+//       const json = await res.json();
+//       if (json.success) {
+//         setReferralUser(json.referralUser || null);
+//         setAllUsers(json.freeUsers || []);
+//       }
+//     } catch (err) {
+//       console.error("Failed to fetch free users:", err);
+//     } finally {
+//       setLoading(false);
+//     }
+//   }, []);
+
+//   // ── Fetch statistics ──────────────────────────────────────────────────────
+//   const fetchStatistics = useCallback(async (userId) => {
+//     if (!userId) return;
+//     try {
+//       const res  = await fetch(DETAILS_URL, {
+//         method: "POST",
+//         headers: { "Content-Type": "application/json" },
+//         body: JSON.stringify({ uid: userId }),
+//       });
+//       const json = await res.json();
+//       if (json.success && json.data?.freeUsers) {
+//         setFreeStats({
+//           total:     json.data.freeUsers.total,
+//           thisMonth: json.data.freeUsers.thisMonth,
+//           thisWeek:  json.data.freeUsers.thisWeek,
+//           revenue:   json.data.freeUsers.revenue,
+//         });
+//       }
+//     } catch (err) {
+//       console.error("Failed to fetch statistics:", err);
+//     }
+//   }, []);
+
+//   // ── On mount: restore from router state or sessionStorage ────────────────
+//   useEffect(() => {
+//     const state       = location.state || {};
+//     const SESSION_KEY = "referralMarketingUser";
+//     let userId, userName, userAvatar;
+
+//     if (state.selectedUserId) {
+//       userId     = state.selectedUserId;
+//       userName   = state.selectedUserName   ?? "";
+//       userAvatar = state.selectedUserAvatar ?? "";
+//       sessionStorage.setItem(SESSION_KEY, JSON.stringify({ userId, userName, userAvatar }));
+//       window.history.replaceState({}, document.title);
+//     } else {
+//       try {
+//         const saved = JSON.parse(sessionStorage.getItem(SESSION_KEY) || "{}");
+//         userId      = saved.userId     ?? null;
+//         userName    = saved.userName   ?? "";
+//         userAvatar  = saved.userAvatar ?? "";
+//       } catch {
+//         userId = null; userName = ""; userAvatar = "";
+//       }
+//     }
+
+//     if (userId)     setSelectedUserId(parseInt(userId));
+//     if (userName)   setSelectedUserName(userName);
+//     if (userAvatar) setStoredAvatar(userAvatar);
+//   }, []);
+
+//   // ── Fetch once when user ID is ready ─────────────────────────────────────
+//   useEffect(() => {
+//     if (selectedUserId) {
+//       fetchAllUsers(selectedUserId);
+//       fetchStatistics(selectedUserId);
+//     }
+//   }, [selectedUserId]);
+
+//   // ── Client-side filter over ALL users ────────────────────────────────────
+//   const filteredUsers = allUsers.filter((row) =>
+//     (row.name || row.userName || "").toLowerCase().includes(tableSearch.toLowerCase())
+//   );
+
+//   // ── Reset to page 1 on every search change ────────────────────────────────
+//   useEffect(() => {
+//     setCurrentPage(1);
+//   }, [tableSearch]);
+
+//   // ── Slice filtered list for current page ─────────────────────────────────
+//   const totalCount = filteredUsers.length;
+//   const totalPages = Math.max(1, Math.ceil(totalCount / ITEMS_PER_PAGE));
+//   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+//   const endIndex   = startIndex + ITEMS_PER_PAGE;
+//   const pageData   = filteredUsers.slice(startIndex, endIndex);
+
+//   // ── Pagination handlers ───────────────────────────────────────────────────
+//   const handlePrevPage  = () => setCurrentPage((p) => Math.max(1, p - 1));
+//   const handleNextPage  = () => setCurrentPage((p) => Math.min(totalPages, p + 1));
+//   const handlePageClick = (n) => setCurrentPage(n);
+
+//   // ── Visible page numbers ──────────────────────────────────────────────────
+//   const startPage   = Math.max(1, currentPage - 1);
+//   const endPage     = Math.min(totalPages, startPage + 3);
+//   const pageNumbers = [];
+//   for (let i = startPage; i <= endPage; i++) pageNumbers.push(i);
+
+//   // ── Display values ────────────────────────────────────────────────────────
+//   const displayName    = referralUser?.name || selectedUserName || "User";
+//   const apiImage       = referralUser?.imageUrl || referralUser?.image || null;
+//   const displayAvatar  = apiImage ? resolveImageUrl(apiImage) : storedAvatar || resolveImageUrl(null);
+//   const displayCountry = referralUser?.country && referralUser.country !== "N/A" ? referralUser.country : "USA";
+//   const displayBalance = `$${parseFloat(freeStats.revenue || 0).toFixed(0)}`;
+
+//   return (
+//     <div className="h-[1000px] min-h-screen flex bg-[#F5F6FA]">
+//       <Sidebar isCurrentPageFreeAllUsers={false} />
+
+//       {/* ── LEFT PANEL ─────────────────────────────────────────────────────── */}
+//       <div className="min-h-screen h-[969px] w-[290px] bg-white rounded-md shadow-sm p-2 flex flex-col relative ml-[16px] mt-[10px]">
+//         <input
+//           type="text"
+//           placeholder="Search..."
+//           value={searchTerm}
+//           onChange={(e) => setSearchTerm(e.target.value)}
+//           className="h-[40px] w-[273px] mb-3 px-3 py-2 border border-gray-300 rounded-md text-sm outline-none mt-[3px]"
+//         />
+//         <Search size={18} className="absolute left-3 mt-[15px] ml-[240px] text-[#055860]" strokeWidth={2} />
+
+//         <div className="flex-1 space-y-2 overflow-y-auto mt-[-15px]">
+//           <div className="flex flex-col p-2 mt-3 rounded-md bg-[#E8F0F6] border border-[#055860]">
+//             <div className="flex items-center justify-between mb-2">
+//               <div className="flex items-center gap-2">
+//                 <img
+//                   src={displayAvatar}
+//                   alt={displayName}
+//                   onError={(e) => { e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=055860&color=fff`; }}
+//                   className="w-9 h-9 rounded-full object-cover mt-[13px] mr-[-5px]"
+//                 />
+//                 <p className="text-sm font-semibold mt-[-10px] ml-2 text-[#055860]">{displayName}</p>
+//               </div>
+//               <span className="text-xs text-[#055860] mt-3">{displayCountry}</span>
+//             </div>
+//             <div className="flex items-center justify-start gap-2 text-xs ml-[48px] mt-[-22px]">
+//               <span className="text-gray-500">
+//                 Users: <span className="text-[#055860]">{freeStats.total}</span>
+//               </span>
+//               <span className="text-gray-500">
+//                 Balance: <span className="text-[#055860]">{displayBalance}</span>
+//               </span>
+//             </div>
+//           </div>
+//         </div>
+//       </div>
+
+//       {/* ── RIGHT PANEL ────────────────────────────────────────────────────── */}
+//       <div className="flex-1 min-h-screen w-full max-w-[3700px] p-6 border rounded-md mt-2 bg-white mb-5 overflow-hidden">
+
+//         {/* Header */}
+//         <div className="flex items-center justify-between mb-6">
+//           <div className="flex items-center gap-4">
+//             <img
+//               src={displayAvatar}
+//               alt={displayName}
+//               onError={(e) => { e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=055860&color=fff`; }}
+//               className="w-12 h-12 rounded-full object-cover mt-[-17px]"
+//             />
+//             <h2 className="text-xl font-semibold text-[#055860] hover:underline mt-[-15px]">{displayName}</h2>
+//           </div>
+//           <div className="relative w-full max-w-sm">
+//             <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#055860] ml-[160px]" strokeWidth={2} />
+//             <input
+//               type="text"
+//               placeholder="Search..."
+//               value={tableSearch}
+//               onChange={(e) => setTableSearch(e.target.value)}
+//               className="w-[220px] pl-10 ml-[160px] pr-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#055860] focus:border-[#055860]"
+//             />
+//           </div>
+//         </div>
+
+//         {/* Stats bar */}
+//         <div className="flex items-center gap-4 mb-4 mt-[-8px]">
+//           <button
+//             onClick={() => navigate(-1)}
+//             className="w-[110px] h-[115px] bg-[#055860] text-white rounded-md flex items-center justify-center cursor-pointer hover:bg-[#044a52] transition-colors"
+//           >
+//             <img className="h-11 w-11" src={BackArrow} alt="Back Arrow" />
+//           </button>
+//           <div className="flex-1 border border-gray-300 rounded-lg overflow-hidden">
+//             <div className="grid grid-cols-5">
+//               <div className="h-[115px] bg-[#055860] text-white pt-1 text-center border-r border-gray-300 flex items-center justify-center">
+//                 <div className="text-md font-semibold leading-[200%]">
+//                   <span className="block whitespace-nowrap">Free Users</span>
+//                 </div>
+//               </div>
+//               <div className="bg-[#055860] text-white p-6 text-center">
+//                 <div className="text-lg font-bold mt-1">{freeStats.total}</div>
+//                 <div className="text-md mt-2 opacity-90 whitespace-nowrap">Total Users</div>
+//               </div>
+//               <div className="bg-[#055860] text-white p-6 text-center">
+//                 <div className="text-lg font-bold mt-1">{freeStats.thisMonth}</div>
+//                 <div className="text-md mt-2 opacity-90 whitespace-nowrap">This Month</div>
+//               </div>
+//               <div className="bg-[#055860] text-white pt-9 text-center border-r border-gray-300">
+//                 <div className="text-lg font-bold leading-[70%]">{freeStats.thisWeek}</div>
+//                 <div className="text-md opacity-90 mt-[14px]">This Week</div>
+//               </div>
+//               <div className="bg-[#055860] text-white pt-9 text-center border-r border-gray-300">
+//                 <div className="text-lg font-bold leading-[70%]">{displayBalance}</div>
+//                 <div className="text-md opacity-90 mt-[14px]">Revenue</div>
+//               </div>
+//             </div>
+//           </div>
+//         </div>
+
+//         {/* Table */}
+//         <div className="flex-1 overflow-x-auto">
+//          {/* <table className="w-full border border-gray-200 rounded-md text-sm"> */}
+//             {/* <thead className="h-[45px] bg-[#055860] text-white"> */}
+//               {/* <tr> */}
+//                 {/* <th className="px-4 py-3 text-start"><div className="ml-1">User</div></th> */}
+//                 {/* <th className="px-4 py-3 text-left"><div className="ml-[2px]">Installed</div></th> */}
+//                 {/* <th className="p-2 text-center">Status</th> */}
+//               {/* </tr> */}
+//             {/* </thead> */}
+
+// <table className="w-full border border-gray-200 rounded-md text-sm table-fixed">
+//   <colgroup>
+//     <col className="w-[40%]" />
+//     <col className="w-[35%]" />
+//     <col className="w-[25%]" />
+//   </colgroup>
+//   <thead className="h-[45px] bg-[#055860] text-white">
+//     <tr>
+     
+// <th className="px-4 py-3 text-left w-[40%]">
+//   <span className="ml-2">User</span>
+// </th>
+// <th className="px-4 py-3 text-left w-[35%]">
+//   <span className="ml-2">Installed</span>
+// </th>
+// <th className="px-4 py-3 text-center w-[25%]">Status</th>
+
+//     </tr>
+//   </thead>
+
+
+//             <tbody>
+//               {loading ? (
+//                 <tr>
+//                   <td colSpan="3" className="p-4 text-center text-gray-500">Loading...</td>
+//                 </tr>
+//               ) : pageData.length > 0 ? (
+//                 pageData.map((row, idx) => {
+//                   const userName      = row.name || row.userName || "Unknown";
+//                   const userAvatar    = resolveImageUrl(row.image || row.imageUrl || null);
+//                   const installedDate = row.createdAt
+//                     ? new Date(row.createdAt).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" })
+//                     : "—";
+//                   const installedTime = row.createdAt
+//                     ? new Date(row.createdAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })
+//                     : "";
+//                   return (
+//                     <tr key={row.id || idx} className="border-b">
+//                       <td className="p-4">
+//                         <div className="flex items-center gap-2">
+//                           <img
+//                             src={userAvatar}
+//                             alt="User"
+//                             onError={(e) => { e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}&background=055860&color=fff`; }}
+//                             className="w-8 h-8 rounded-full object-cover"
+//                           />
+//                           {userName}
+//                         </div>
+//                       </td>
+
+//  <td className="px-4 py-3 text-start">
+//                    <div className="-ml-[-150px]"></div>
+
+//                         {installedDate}<br />
+//                         <span className="text-xs text-gray-400 text-start ml-4">{installedTime}</span>
+//                       </td>
+//                       <td className="p-2 text-center">
+//                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+//                           row.status === "Free" ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"
+//                         }`}>
+//                           {row.status || "—"}
+//                         </span>
+//                       </td> 
+
+
+
+//                     </tr>
+//                   );
+//                 })
+//               ) : (
+//                 <tr>
+//                   <td colSpan="3" className="p-4 text-center text-gray-500">
+//                     {tableSearch ? `No results for "${tableSearch}"` : "No free users found"}
+//                   </td>
+//                 </tr>
+//               )}
+//             </tbody>
+//           </table>
+//         </div>
+
+//         {/* Pagination */}
+//         <div className="flex items-center justify-between px-4 py-4 border-t mt-[-7px]">
+//           <p className="text-sm text-gray-600 ml-[-13px]">
+//             Showing {totalCount > 0 ? startIndex + 1 : 0} to {Math.min(endIndex, totalCount)} of {totalCount} entries
+//           </p>
+//           <div className="flex items-center gap-2 mr-[-19px]">
+//             <button
+//               onClick={handlePrevPage}
+//               disabled={currentPage === 1}
+//               className={`w-6 h-6 flex items-center justify-center rounded-full ${
+//                 currentPage === 1 ? "bg-gray-300 cursor-not-allowed" : "bg-[#691188] cursor-pointer"
+//               }`}
+//             >
+//               <span className="text-white text-[25px] leading-none mt-[-7px]">‹</span>
+//             </button>
+
+//             {startPage > 1 && (
+//               <>
+//                 <span onClick={() => handlePageClick(1)} className="cursor-pointer text-gray-500 hover:text-[#691188]">1</span>
+//                 {startPage > 2 && <span className="text-gray-400 text-[20px] leading-none mt-[-4px]">···</span>}
+//               </>
+//             )}
+
+//             {pageNumbers.map((n) => (
+//               <span
+//                 key={n}
+//                 onClick={() => handlePageClick(n)}
+//                 className={`cursor-pointer ${currentPage === n ? "text-[#691188] font-semibold" : "text-gray-500"}`}
+//               >
+//                 {n}
+//               </span>
+//             ))}
+
+//             {endPage < totalPages && (
+//               <>
+//                 {endPage < totalPages - 1 && <span className="text-gray-400 text-[20px] leading-none mt-[-4px]">···</span>}
+//                 <span onClick={() => handlePageClick(totalPages)} className="cursor-pointer text-gray-500 hover:text-[#691188]">{totalPages}</span>
+//               </>
+//             )}
+
+//             <button
+//               onClick={handleNextPage}
+//               disabled={currentPage === totalPages}
+//               className={`w-6 h-6 flex items-center justify-center rounded-full ${
+//                 currentPage === totalPages ? "bg-gray-300 cursor-not-allowed" : "bg-[#691188] cursor-pointer"
+//               }`}
+//             >
+//               <span className="text-white text-[25px] leading-none mt-[-7px]">›</span>
+//             </button>
+//           </div>
+//         </div>
+
+//       </div>
+//     </div>
+//   );
+// }
+
+
+///
+
+
 import React, { useState, useEffect, useCallback } from "react";
 import Sidebar from "./Sidebar.jsx";
 import BackArrow from "../assets/BackArrow.png";
@@ -3301,22 +3705,21 @@ export default function ReferralMarketingUsers() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [searchTerm, setSearchTerm]             = useState(""); // left panel (future)
-  const [tableSearch, setTableSearch]           = useState(""); // client-side filter
+  const [searchTerm, setSearchTerm]             = useState("");
+  const [tableSearch, setTableSearch]           = useState("");
   const [currentPage, setCurrentPage]           = useState(1);
   const [selectedUserName, setSelectedUserName] = useState("");
   const [selectedUserId, setSelectedUserId]     = useState(null);
   const [storedAvatar, setStoredAvatar]         = useState("");
+  // ✅ Store balance from navigation state
+  const [storedBalance, setStoredBalance]       = useState("0");
 
-  // ── API state ─────────────────────────────────────────────────────────────
   const [referralUser, setReferralUser] = useState(null);
-  const [allUsers, setAllUsers]         = useState([]); // ALL users, fetched once
+  const [allUsers, setAllUsers]         = useState([]);
   const [loading, setLoading]           = useState(false);
 
-  // ── Stats state ───────────────────────────────────────────────────────────
   const [freeStats, setFreeStats] = useState({ total: 0, thisMonth: 0, thisWeek: 0, revenue: 0 });
 
-  // ── Fetch ALL users once (large limit) ───────────────────────────────────
   const fetchAllUsers = useCallback(async (userId) => {
     if (!userId) return;
     setLoading(true);
@@ -3336,7 +3739,6 @@ export default function ReferralMarketingUsers() {
     }
   }, []);
 
-  // ── Fetch statistics ──────────────────────────────────────────────────────
   const fetchStatistics = useCallback(async (userId) => {
     if (!userId) return;
     try {
@@ -3359,35 +3761,38 @@ export default function ReferralMarketingUsers() {
     }
   }, []);
 
-  // ── On mount: restore from router state or sessionStorage ────────────────
   useEffect(() => {
     const state       = location.state || {};
     const SESSION_KEY = "referralMarketingUser";
-    let userId, userName, userAvatar;
+    let userId, userName, userAvatar, userBalance;
 
     if (state.selectedUserId) {
-      userId     = state.selectedUserId;
-      userName   = state.selectedUserName   ?? "";
-      userAvatar = state.selectedUserAvatar ?? "";
-      sessionStorage.setItem(SESSION_KEY, JSON.stringify({ userId, userName, userAvatar }));
+      userId      = state.selectedUserId;
+      userName    = state.selectedUserName   ?? "";
+      userAvatar  = state.selectedUserAvatar ?? "";
+      // ✅ Read selectedUserBalance from navigation state
+      userBalance = state.selectedUserBalance ?? "0";
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify({ userId, userName, userAvatar, userBalance }));
       window.history.replaceState({}, document.title);
     } else {
       try {
         const saved = JSON.parse(sessionStorage.getItem(SESSION_KEY) || "{}");
-        userId      = saved.userId     ?? null;
-        userName    = saved.userName   ?? "";
-        userAvatar  = saved.userAvatar ?? "";
+        userId      = saved.userId      ?? null;
+        userName    = saved.userName    ?? "";
+        userAvatar  = saved.userAvatar  ?? "";
+        userBalance = saved.userBalance ?? "0";
       } catch {
-        userId = null; userName = ""; userAvatar = "";
+        userId = null; userName = ""; userAvatar = ""; userBalance = "0";
       }
     }
 
-    if (userId)     setSelectedUserId(parseInt(userId));
-    if (userName)   setSelectedUserName(userName);
-    if (userAvatar) setStoredAvatar(userAvatar);
+    if (userId)      setSelectedUserId(parseInt(userId));
+    if (userName)    setSelectedUserName(userName);
+    if (userAvatar)  setStoredAvatar(userAvatar);
+    // ✅ Set stored balance
+    if (userBalance) setStoredBalance(userBalance);
   }, []);
 
-  // ── Fetch once when user ID is ready ─────────────────────────────────────
   useEffect(() => {
     if (selectedUserId) {
       fetchAllUsers(selectedUserId);
@@ -3395,46 +3800,41 @@ export default function ReferralMarketingUsers() {
     }
   }, [selectedUserId]);
 
-  // ── Client-side filter over ALL users ────────────────────────────────────
   const filteredUsers = allUsers.filter((row) =>
     (row.name || row.userName || "").toLowerCase().includes(tableSearch.toLowerCase())
   );
 
-  // ── Reset to page 1 on every search change ────────────────────────────────
   useEffect(() => {
     setCurrentPage(1);
   }, [tableSearch]);
 
-  // ── Slice filtered list for current page ─────────────────────────────────
   const totalCount = filteredUsers.length;
   const totalPages = Math.max(1, Math.ceil(totalCount / ITEMS_PER_PAGE));
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const endIndex   = startIndex + ITEMS_PER_PAGE;
   const pageData   = filteredUsers.slice(startIndex, endIndex);
 
-  // ── Pagination handlers ───────────────────────────────────────────────────
   const handlePrevPage  = () => setCurrentPage((p) => Math.max(1, p - 1));
   const handleNextPage  = () => setCurrentPage((p) => Math.min(totalPages, p + 1));
   const handlePageClick = (n) => setCurrentPage(n);
 
-  // ── Visible page numbers ──────────────────────────────────────────────────
   const startPage   = Math.max(1, currentPage - 1);
   const endPage     = Math.min(totalPages, startPage + 3);
   const pageNumbers = [];
   for (let i = startPage; i <= endPage; i++) pageNumbers.push(i);
 
-  // ── Display values ────────────────────────────────────────────────────────
   const displayName    = referralUser?.name || selectedUserName || "User";
   const apiImage       = referralUser?.imageUrl || referralUser?.image || null;
   const displayAvatar  = apiImage ? resolveImageUrl(apiImage) : storedAvatar || resolveImageUrl(null);
   const displayCountry = referralUser?.country && referralUser.country !== "N/A" ? referralUser.country : "USA";
-  const displayBalance = `$${parseFloat(freeStats.revenue || 0).toFixed(0)}`;
+  // ✅ Use storedBalance from navigation state (same as other pages)
+  const displayBalance = `$${parseFloat(storedBalance).toLocaleString()}`;
 
   return (
     <div className="h-[1000px] min-h-screen flex bg-[#F5F6FA]">
       <Sidebar isCurrentPageFreeAllUsers={false} />
 
-      {/* ── LEFT PANEL ─────────────────────────────────────────────────────── */}
+      {/* LEFT PANEL */}
       <div className="min-h-screen h-[969px] w-[290px] bg-white rounded-md shadow-sm p-2 flex flex-col relative ml-[16px] mt-[10px]">
         <input
           type="text"
@@ -3463,6 +3863,7 @@ export default function ReferralMarketingUsers() {
               <span className="text-gray-500">
                 Users: <span className="text-[#055860]">{freeStats.total}</span>
               </span>
+              {/* ✅ Now shows storedBalance from navigation state */}
               <span className="text-gray-500">
                 Balance: <span className="text-[#055860]">{displayBalance}</span>
               </span>
@@ -3471,7 +3872,7 @@ export default function ReferralMarketingUsers() {
         </div>
       </div>
 
-      {/* ── RIGHT PANEL ────────────────────────────────────────────────────── */}
+      {/* RIGHT PANEL */}
       <div className="flex-1 min-h-screen w-full max-w-[3700px] p-6 border rounded-md mt-2 bg-white mb-5 overflow-hidden">
 
         {/* Header */}
@@ -3534,36 +3935,23 @@ export default function ReferralMarketingUsers() {
 
         {/* Table */}
         <div className="flex-1 overflow-x-auto">
-         {/* <table className="w-full border border-gray-200 rounded-md text-sm"> */}
-            {/* <thead className="h-[45px] bg-[#055860] text-white"> */}
-              {/* <tr> */}
-                {/* <th className="px-4 py-3 text-start"><div className="ml-1">User</div></th> */}
-                {/* <th className="px-4 py-3 text-left"><div className="ml-[2px]">Installed</div></th> */}
-                {/* <th className="p-2 text-center">Status</th> */}
-              {/* </tr> */}
-            {/* </thead> */}
-
-<table className="w-full border border-gray-200 rounded-md text-sm table-fixed">
-  <colgroup>
-    <col className="w-[40%]" />
-    <col className="w-[35%]" />
-    <col className="w-[25%]" />
-  </colgroup>
-  <thead className="h-[45px] bg-[#055860] text-white">
-    <tr>
-     
-<th className="px-4 py-3 text-left w-[40%]">
-  <span className="ml-2">User</span>
-</th>
-<th className="px-4 py-3 text-left w-[35%]">
-  <span className="ml-2">Installed</span>
-</th>
-<th className="px-4 py-3 text-center w-[25%]">Status</th>
-
-    </tr>
-  </thead>
-
-
+          <table className="w-full border border-gray-200 rounded-md text-sm table-fixed">
+            <colgroup>
+              <col className="w-[40%]" />
+              <col className="w-[35%]" />
+              <col className="w-[25%]" />
+            </colgroup>
+            <thead className="h-[45px] bg-[#055860] text-white">
+              <tr>
+                <th className="px-4 py-3 text-left w-[40%]">
+                  <span className="ml-2">User</span>
+                </th>
+                <th className="px-4 py-3 text-left w-[35%]">
+                  <span className="ml-2">Installed</span>
+                </th>
+                <th className="px-4 py-3 text-center w-[25%]">Status</th>
+              </tr>
+            </thead>
             <tbody>
               {loading ? (
                 <tr>
@@ -3592,10 +3980,8 @@ export default function ReferralMarketingUsers() {
                           {userName}
                         </div>
                       </td>
-
- <td className="px-4 py-3 text-start">
-                   <div className="-ml-[-150px]"></div>
-
+                      <td className="px-4 py-3 text-start">
+                        <div className="-ml-[-150px]"></div>
                         {installedDate}<br />
                         <span className="text-xs text-gray-400 text-start ml-4">{installedTime}</span>
                       </td>
@@ -3605,10 +3991,7 @@ export default function ReferralMarketingUsers() {
                         }`}>
                           {row.status || "—"}
                         </span>
-                      </td> 
-
-
-
+                      </td>
                     </tr>
                   );
                 })
